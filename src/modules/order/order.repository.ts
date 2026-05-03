@@ -4,9 +4,6 @@ import { Order } from '../../types';
 let nextId = 1;
 
 export const orderRepository = {
-  findAll(): Order[] {
-    return orders;
-  },
 
   findById(id: number): Order | undefined {
     return orders.find((o) => o.id === id);
