@@ -5,7 +5,7 @@ import { toolDefinitions, executeTool } from './tools';
 import path from 'path';
 
 const systemPrompt = readFileSync(
-  path.resolve(__dirname, './system-prompt.txt'),'utf-8',
+    path.resolve(__dirname, './system-prompt.txt'),'utf-8',
 );
 
 const history: Content[] = [];
@@ -41,12 +41,14 @@ export async function runAgent(userInput: string): Promise<string> {
     }));
     contents.push({ role: 'model', parts: modelParts });
 
-    const responseParts: Part[] = functionCalls.map((fc) => ({
-      functionResponse: {
-        name: fc.name!,
-        response: { result: executeTool(fc.name!, fc.args ?? {}) },
-      },
-    }));
+    const responseParts: Part[] = await Promise.all(
+        functionCalls.map(async (fc) => ({
+          functionResponse: {
+            name: fc.name!,
+            response: { result: await executeTool(fc.name!, fc.args ?? {}) },
+          },
+        })),
+    );
     contents.push({ role: 'user', parts: responseParts });
   }
 
