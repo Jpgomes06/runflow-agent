@@ -1,4 +1,4 @@
-import { Tool, SchemaType } from '@google/generative-ai';
+import { FunctionDeclaration, Type } from '@google/genai';
 import { productService } from '../modules/product/product.service';
 import { orderService } from '../modules/order/order.service';
 import { productRepository } from '../modules/product/product.repository';
@@ -18,60 +18,78 @@ function resolveProductId(nameOrId: string | number): number {
   throw new Error(`Ambíguo: "${nameOrId}" pode ser ${options}. Informe o id correto.`);
 }
 
-export const toolDefinitions: Tool[] = [
+export const toolDefinitions: FunctionDeclaration[] = [
   {
-    functionDeclarations: [
-      {
-        name: 'list_products',
-        description: 'Lista todos os produtos disponíveis com id, nome, preço e estoque.',
-        parameters: { type: SchemaType.OBJECT, properties: {} },
-      },
-      {
-        name: 'get_product',
-        description: 'Retorna detalhes de um produto pelo id ou nome.',
-        parameters: {
-          type: SchemaType.OBJECT,
-          properties: {
-            id: { type: SchemaType.NUMBER, description: 'ID do produto (opcional se name for informado)' },
-            name: { type: SchemaType.STRING, description: 'Nome ou parte do nome do produto (opcional se id for informado)' },
-          },
+    name: 'list_products',
+    description: 'Lista todos os produtos disponíveis com id, nome, preço e estoque.',
+    parameters: {
+      type: Type.OBJECT,
+      properties: {},
+    },
+  },
+  {
+    name: 'get_product',
+    description: 'Retorna detalhes de um produto pelo id ou nome.',
+    parameters: {
+      type: Type.OBJECT,
+      properties: {
+        id: {
+          type: Type.NUMBER,
+          description: 'ID do produto (opcional se name for informado)',
+        },
+        name: {
+          type: Type.STRING,
+          description: 'Nome ou parte do nome do produto (opcional se id for informado)',
         },
       },
-      {
-        name: 'get_order_status',
-        description: 'Retorna o status e detalhes de um pedido pelo id.',
-        parameters: {
-          type: SchemaType.OBJECT,
-          properties: {
-            id: { type: SchemaType.NUMBER, description: 'ID do pedido' },
-          },
-          required: ['id'],
+    },
+  },
+  {
+    name: 'get_order_status',
+    description: 'Retorna o status e detalhes de um pedido pelo id.',
+    parameters: {
+      type: Type.OBJECT,
+      properties: {
+        id: {
+          type: Type.NUMBER,
+          description: 'ID do pedido',
         },
       },
-      {
-        name: 'create_order',
-        description: 'Cria um novo pedido. Cada item pode informar productId (número) ou name (texto) junto com quantity.',
-        parameters: {
-          type: SchemaType.OBJECT,
-          properties: {
-            items: {
-              type: SchemaType.ARRAY,
-              description: 'Lista de itens do pedido',
-              items: {
-                type: SchemaType.OBJECT,
-                properties: {
-                  productId: { type: SchemaType.NUMBER, description: 'ID do produto (use se souber)' },
-                  name: { type: SchemaType.STRING, description: 'Nome do produto (alternativa ao productId)' },
-                  quantity: { type: SchemaType.NUMBER, description: 'Quantidade' },
-                },
-                required: ['quantity'],
+      required: ['id'],
+    },
+  },
+  {
+    name: 'create_order',
+    description:
+        'Cria um novo pedido. Cada item pode informar productId (número) ou name (texto) junto com quantity.',
+    parameters: {
+      type: Type.OBJECT,
+      properties: {
+        items: {
+          type: Type.ARRAY,
+          description: 'Lista de itens do pedido',
+          items: {
+            type: Type.OBJECT,
+            properties: {
+              productId: {
+                type: Type.NUMBER,
+                description: 'ID do produto (use se souber)',
+              },
+              name: {
+                type: Type.STRING,
+                description: 'Nome do produto (alternativa ao productId)',
+              },
+              quantity: {
+                type: Type.NUMBER,
+                description: 'Quantidade',
               },
             },
+            required: ['quantity'],
           },
-          required: ['items'],
         },
       },
-    ],
+      required: ['items'],
+    },
   },
 ];
 

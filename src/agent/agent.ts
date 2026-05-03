@@ -1,33 +1,48 @@
-import { Part } from '@google/generative-ai';
-import { geminiModel } from '../infra/geminiClient';
+import { Content, Part } from '@google/genai';
+import { ai, SYSTEM_PROMPT } from '../infra/geminiClient';
 import { toolDefinitions, executeTool } from './tools';
 
-const chat = geminiModel.startChat({ tools: toolDefinitions });
+const history: Content[] = [];
 
 export async function runAgent(userInput: string): Promise<string> {
-  let response = await chat.sendMessage(userInput);
+  const contents: Content[] = [
+    ...history,
+    { role: 'user', parts: [{ text: userInput }] },
+  ];
+
+  let finalText = '';
 
   while (true) {
-    const candidate = response.response.candidates?.[0];
-    if (!candidate) break;
+    const response = await ai.models.generateContent({
+      model: 'gemini-2.5-flash',
+      contents,
+      config: {
+        systemInstruction: SYSTEM_PROMPT,
+        tools: [{ functionDeclarations: toolDefinitions }],
+      },
+    });
 
-    const functionCalls = candidate.content.parts.filter((p: Part) => p.functionCall);
-    if (functionCalls.length === 0) break;
+    const functionCalls = response.functionCalls;
 
-    const functionResponses: Part[] = functionCalls.map((p: Part) => ({
+    if (!functionCalls || functionCalls.length === 0) {
+      finalText = response.text ?? '';
+      contents.push({ role: 'model', parts: [{ text: finalText }] });
+      break;
+    }
+
+    const modelParts: Part[] = functionCalls.map((fc) => ({ functionCall: fc }));
+    contents.push({ role: 'model', parts: modelParts });
+
+    const responseParts: Part[] = functionCalls.map((fc) => ({
       functionResponse: {
-        name: p.functionCall!.name,
-        response: {
-          result: executeTool(
-            p.functionCall!.name,
-            (p.functionCall!.args ?? {}) as Record<string, unknown>,
-          ),
-        },
+        name: fc.name!,
+        response: { result: executeTool(fc.name!, fc.args ?? {}) },
       },
     }));
-
-    response = await chat.sendMessage(functionResponses);
+    contents.push({ role: 'user', parts: responseParts });
   }
 
-  return response.response.text();
+  history.push(...contents.slice(history.length));
+
+  return finalText;
 }
