@@ -12,16 +12,20 @@ function resolveProductId(nameOrId: string | number): number {
   );
 
   if (matches.length === 1) return matches[0].id;
-  if (matches.length === 0) throw new Error(`Produto "${nameOrId}" não encontrado`);
+  if (matches.length === 0)
+    throw new Error(`Produto "${nameOrId}" não encontrado`);
 
   const options = matches.map((p) => `${p.name} (id: ${p.id})`).join(', ');
-  throw new Error(`Ambíguo: "${nameOrId}" pode ser ${options}. Informe o id correto.`);
+  throw new Error(
+    `Ambíguo: "${nameOrId}" pode ser ${options}. Informe o id correto.`,
+  );
 }
 
 export const toolDefinitions: FunctionDeclaration[] = [
   {
     name: 'list_products',
-    description: 'Lista todos os produtos disponíveis com id, nome, preço e estoque.',
+    description:
+      'Lista todos os produtos disponíveis com id, nome, preço e estoque.',
     parameters: {
       type: Type.OBJECT,
       properties: {},
@@ -39,7 +43,8 @@ export const toolDefinitions: FunctionDeclaration[] = [
         },
         name: {
           type: Type.STRING,
-          description: 'Nome ou parte do nome do produto (opcional se id for informado)',
+          description:
+            'Nome ou parte do nome do produto (opcional se id for informado)',
         },
       },
     },
@@ -61,7 +66,7 @@ export const toolDefinitions: FunctionDeclaration[] = [
   {
     name: 'create_order',
     description:
-        'Cria um novo pedido. Cada item pode informar productId (número) ou name (texto) junto com quantity.',
+      'Cria um novo pedido. Cada item pode informar productId (número) ou name (texto) junto com quantity.',
     parameters: {
       type: Type.OBJECT,
       properties: {
@@ -95,16 +100,20 @@ export const toolDefinitions: FunctionDeclaration[] = [
 
 type RawItem = { productId?: number; name?: string; quantity: number };
 
-export function executeTool(name: string, args: Record<string, unknown>): string {
+export function executeTool(
+  name: string,
+  args: Record<string, unknown>,
+): string {
   try {
     if (name === 'list_products') {
       return JSON.stringify(productService.listProducts());
     }
 
     if (name === 'get_product') {
-      const id = args.id != null
-        ? resolveProductId(args.id as number)
-        : resolveProductId(args.name as string);
+      const id =
+        args.id != null
+          ? resolveProductId(args.id as number)
+          : resolveProductId(args.name as string);
       return JSON.stringify(productService.getProduct(id));
     }
 
@@ -115,9 +124,10 @@ export function executeTool(name: string, args: Record<string, unknown>): string
     if (name === 'create_order') {
       const rawItems = args.items as RawItem[];
       const items = rawItems.map((item) => {
-        const productId = item.productId != null
-          ? resolveProductId(item.productId)
-          : resolveProductId(item.name as string);
+        const productId =
+          item.productId != null
+            ? resolveProductId(item.productId)
+            : resolveProductId(item.name as string);
         return { productId, quantity: item.quantity };
       });
       return JSON.stringify(orderService.createOrder({ items }));

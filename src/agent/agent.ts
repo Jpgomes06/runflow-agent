@@ -2,8 +2,11 @@ import { Content, Part } from '@google/genai';
 import { readFileSync } from 'fs';
 import { ai } from '../infra/geminiClient';
 import { toolDefinitions, executeTool } from './tools';
+import path from 'path';
 
-const systemPrompt = readFileSync(require('path').resolve(__dirname, './system-prompt.txt'), 'utf-8')
+const systemPrompt = readFileSync(
+  path.resolve(__dirname, './system-prompt.txt'),'utf-8',
+);
 
 const history: Content[] = [];
 
@@ -33,7 +36,9 @@ export async function runAgent(userInput: string): Promise<string> {
       break;
     }
 
-    const modelParts: Part[] = functionCalls.map((fc) => ({ functionCall: fc }));
+    const modelParts: Part[] = functionCalls.map((fc) => ({
+      functionCall: fc,
+    }));
     contents.push({ role: 'model', parts: modelParts });
 
     const responseParts: Part[] = functionCalls.map((fc) => ({

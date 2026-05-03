@@ -16,7 +16,9 @@ export const orderService = {
       const product = productRepository.findById(item.productId);
       if (!product) throw new Error(`Produto ${item.productId} não encontrado`);
       if (product.stock < item.quantity) {
-        throw new Error(`Estoque insuficiente para o produto "${product.name}" (disponível: ${product.stock})`);
+        throw new Error(
+          `Estoque insuficiente para o produto "${product.name}" (disponível: ${product.stock})`,
+        );
       }
       total += product.price * item.quantity;
     }
@@ -25,6 +27,10 @@ export const orderService = {
       productRepository.decreaseStock(item.productId, item.quantity);
     }
 
-    return orderRepository.save({ items: dto.items, total, status: 'confirmed' });
+    return orderRepository.save({
+      items: dto.items,
+      total,
+      status: 'confirmed',
+    });
   },
 };
