@@ -1,6 +1,9 @@
 import { Content, Part } from '@google/genai';
-import { ai, SYSTEM_PROMPT } from '../infra/geminiClient';
+import { readFileSync } from 'fs';
+import { ai } from '../infra/geminiClient';
 import { toolDefinitions, executeTool } from './tools';
+
+const systemPrompt = readFileSync(require('path').resolve(__dirname, './system-prompt.txt'), 'utf-8')
 
 const history: Content[] = [];
 
@@ -17,7 +20,7 @@ export async function runAgent(userInput: string): Promise<string> {
       model: 'gemini-2.5-flash',
       contents,
       config: {
-        systemInstruction: SYSTEM_PROMPT,
+        systemInstruction: systemPrompt,
         tools: [{ functionDeclarations: toolDefinitions }],
       },
     });
