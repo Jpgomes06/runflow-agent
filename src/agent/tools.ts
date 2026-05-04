@@ -7,11 +7,15 @@ const API_BASE_URL = process.env.API_BASE_URL || 'http://localhost:3000';
 async function resolveProductId(nameOrId: string | number): Promise<number> {
   if (typeof nameOrId === 'number') return nameOrId;
 
+  const match = nameOrId.match(/produto\s*(\d+)/i);
+  if (match) return Number(match[1]);
+
   const { data: products } = await axios.get<Product[]>(
-      `${API_BASE_URL}/products`,
+    `${API_BASE_URL}/products`,
   );
+
   const matches = products.filter((p) =>
-      p.name.toLowerCase().includes(nameOrId.toLowerCase()),
+    p.name.toLowerCase().includes(nameOrId.toLowerCase()),
   );
 
   if (matches.length === 1) return matches[0].id;
@@ -20,7 +24,7 @@ async function resolveProductId(nameOrId: string | number): Promise<number> {
 
   const options = matches.map((p) => `${p.name} (id: ${p.id})`).join(', ');
   throw new Error(
-      `Ambíguo: "${nameOrId}" pode ser ${options}. Informe o id correto.`,
+    `Ambíguo: "${nameOrId}" pode ser ${options}. Informe o id correto.`,
   );
 }
 
@@ -28,7 +32,7 @@ export const toolDefinitions: FunctionDeclaration[] = [
   {
     name: 'list_products',
     description:
-        'Lista todos os produtos disponíveis com id, nome, preço e estoque.',
+      'Lista todos os produtos disponíveis com id, nome, preço e estoque.',
     parameters: {
       type: Type.OBJECT,
       properties: {},
@@ -47,7 +51,7 @@ export const toolDefinitions: FunctionDeclaration[] = [
         name: {
           type: Type.STRING,
           description:
-              'Nome ou parte do nome do produto (opcional se id for informado)',
+            'Nome ou parte do nome do produto (opcional se id for informado)',
         },
       },
     },
@@ -69,7 +73,7 @@ export const toolDefinitions: FunctionDeclaration[] = [
   {
     name: 'create_order',
     description:
-        'Cria um novo pedido. Cada item pode informar productId (número) ou name (texto) junto com quantity.',
+      'Cria um novo pedido. Cada item pode informar productId (número) ou name (texto) junto com quantity.',
     parameters: {
       type: Type.OBJECT,
       properties: {
@@ -104,8 +108,8 @@ export const toolDefinitions: FunctionDeclaration[] = [
 type RawItem = { productId?: number; name?: string; quantity: number };
 
 export async function executeTool(
-    name: string,
-    args: Record<string, unknown>,
+  name: string,
+  args: Record<string, unknown>,
 ): Promise<string> {
   try {
     if (name === 'list_products') {
@@ -115,18 +119,18 @@ export async function executeTool(
 
     if (name === 'get_product') {
       const id =
-          args.id != null
-              ? await resolveProductId(args.id as number)
-              : await resolveProductId(args.name as string);
+        args.id != null
+          ? await resolveProductId(args.id as number)
+          : await resolveProductId(args.name as string);
       const { data } = await axios.get<Product>(
-          `${API_BASE_URL}/products/${id}`,
+        `${API_BASE_URL}/products/${id}`,
       );
       return JSON.stringify(data);
     }
 
     if (name === 'get_order_status') {
       const { data } = await axios.get<Order>(
-          `${API_BASE_URL}/orders/${args.id as number}`,
+        `${API_BASE_URL}/orders/${args.id as number}`,
       );
       return JSON.stringify(data);
     }
@@ -134,13 +138,13 @@ export async function executeTool(
     if (name === 'create_order') {
       const rawItems = args.items as RawItem[];
       const items = await Promise.all(
-          rawItems.map(async (item) => {
-            const productId =
-                item.productId != null
-                    ? await resolveProductId(item.productId)
-                    : await resolveProductId(item.name as string);
-            return { productId, quantity: item.quantity };
-          }),
+        rawItems.map(async (item) => {
+          const productId =
+            item.productId != null
+              ? await resolveProductId(item.productId)
+              : await resolveProductId(item.name as string);
+          return { productId, quantity: item.quantity };
+        }),
       );
       const dto: CreateOrderDTO = { items };
       const { data } = await axios.post<Order>(`${API_BASE_URL}/orders`, dto);
