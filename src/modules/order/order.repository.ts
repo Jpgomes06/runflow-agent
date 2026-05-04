@@ -4,7 +4,6 @@ import { Order } from '../../types';
 let nextId = 1;
 
 export const orderRepository = {
-
   findById(id: number): Order | undefined {
     return orders.find((o) => o.id === id);
   },
