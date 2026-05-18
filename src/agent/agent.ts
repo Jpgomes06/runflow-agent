@@ -1,20 +1,32 @@
 import { Content, Part } from '@google/genai';
+
 import { readFileSync } from 'fs';
-import { ai } from '../infra/geminiClient';
-import { toolDefinitions, executeTool } from './tools';
 import path from 'path';
+
+import { ai } from '../infra/geminiClient';
+
+import { executeTool, toolDefinitions } from './tools';
+
+import { ChatHistoryService } from './services/chat-history.service';
 
 const systemPrompt = readFileSync(
   path.resolve(__dirname, './system-prompt.txt'),
   'utf-8',
 );
 
-const history: Content[] = [];
+const chatHistory = new ChatHistoryService();
 
 export async function runAgent(userInput: string): Promise<string> {
   const contents: Content[] = [
-    ...history,
-    { role: 'user', parts: [{ text: userInput }] },
+    ...chatHistory.getAll(),
+    {
+      role: 'user',
+      parts: [
+        {
+          text: userInput,
+        },
+      ],
+    },
   ];
 
   let finalText = '';
@@ -25,7 +37,12 @@ export async function runAgent(userInput: string): Promise<string> {
       contents,
       config: {
         systemInstruction: systemPrompt,
-        tools: [{ functionDeclarations: toolDefinitions }],
+
+        tools: [
+          {
+            functionDeclarations: toolDefinitions,
+          },
+        ],
       },
     });
 
@@ -33,27 +50,46 @@ export async function runAgent(userInput: string): Promise<string> {
 
     if (!functionCalls || functionCalls.length === 0) {
       finalText = response.text ?? '';
-      contents.push({ role: 'model', parts: [{ text: finalText }] });
+
+      contents.push({
+        role: 'model',
+        parts: [
+          {
+            text: finalText,
+          },
+        ],
+      });
+
       break;
     }
 
     const modelParts: Part[] = functionCalls.map((fc) => ({
       functionCall: fc,
     }));
-    contents.push({ role: 'model', parts: modelParts });
+
+    contents.push({
+      role: 'model',
+      parts: modelParts,
+    });
 
     const responseParts: Part[] = await Promise.all(
       functionCalls.map(async (fc) => ({
         functionResponse: {
           name: fc.name!,
-          response: { result: await executeTool(fc.name!, fc.args ?? {}) },
+          response: {
+            result: await executeTool(fc.name!, fc.args ?? {}),
+          },
         },
       })),
     );
-    contents.push({ role: 'user', parts: responseParts });
+
+    contents.push({
+      role: 'user',
+      parts: responseParts,
+    });
   }
 
-  history.push(...contents.slice(history.length));
+  chatHistory.add(contents);
 
   return finalText;
 }
