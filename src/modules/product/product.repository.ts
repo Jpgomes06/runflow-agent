@@ -1,4 +1,5 @@
 import { Product } from '../../types';
+import { IProductRepository } from '../contracts/IProductRepository';
 
 const products: Product[] = [
   { id: 1, name: 'Notebook', price: 3500, stock: 10 },
@@ -8,19 +9,20 @@ const products: Product[] = [
   { id: 5, name: 'Headset', price: 250, stock: 20 },
 ];
 
-export const productRepository = {
+export class ProductRepository implements IProductRepository {
   findAll(): Product[] {
     return products;
-  },
+  }
 
   findById(id: number): Product | undefined {
     return products.find((p) => p.id === id);
-  },
+  }
 
   decreaseStock(id: number, quantity: number): void {
     const product = products.find((p) => p.id === id);
+
     if (product) {
       product.stock -= quantity;
     }
-  },
-};
+  }
+}
