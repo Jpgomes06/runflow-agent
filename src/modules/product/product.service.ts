@@ -1,14 +1,17 @@
 import { Product } from '../../types';
-import { productRepository } from './product.repository';
+import { IProductRepository } from '../contracts/IProductRepository';
 
-export const productService = {
+export class ProductService {
+  constructor(private readonly productRepository: IProductRepository) {}
+
   listProducts(): Product[] {
-    return productRepository.findAll();
-  },
-
+    return this.productRepository.findAll();
+  }
   getProduct(id: number): Product {
-    const product = productRepository.findById(id);
-    if (!product) throw new Error(`Produto ${id} não encontrado`);
+    const product = this.productRepository.findById(id);
+    if (!product) {
+      throw new Error(`Produto ${id} não encontrado`);
+    }
     return product;
-  },
-};
+  }
+}

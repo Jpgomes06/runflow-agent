@@ -1,32 +1,8 @@
 import { FunctionDeclaration, Type } from '@google/genai';
-import axios from 'axios';
-import { CreateOrderDTO, Order, Product } from '../types';
 
-const API_BASE_URL = process.env.API_BASE_URL || 'http://localhost:3000';
-
-async function resolveProductId(nameOrId: string | number): Promise<number> {
-  if (typeof nameOrId === 'number') return nameOrId;
-
-  const match = nameOrId.match(/produto\s*(\d+)/i);
-  if (match) return Number(match[1]);
-
-  const { data: products } = await axios.get<Product[]>(
-    `${API_BASE_URL}/products`,
-  );
-
-  const matches = products.filter((p) =>
-    p.name.toLowerCase().includes(nameOrId.toLowerCase()),
-  );
-
-  if (matches.length === 1) return matches[0].id;
-  if (matches.length === 0)
-    throw new Error(`Produto "${nameOrId}" não encontrado`);
-
-  const options = matches.map((p) => `${p.name} (id: ${p.id})`).join(', ');
-  throw new Error(
-    `Ambíguo: "${nameOrId}" pode ser ${options}. Informe o id correto.`,
-  );
-}
+import { ProductApiService } from './services/product-api.service';
+import { OrderApiService } from './services/order-api.service';
+import { ProductResolverService } from './services/product-resolver.service';
 
 export const toolDefinitions: FunctionDeclaration[] = [
   {
@@ -46,19 +22,18 @@ export const toolDefinitions: FunctionDeclaration[] = [
       properties: {
         id: {
           type: Type.NUMBER,
-          description: 'ID do produto (opcional se name for informado)',
+          description: 'ID do produto',
         },
         name: {
           type: Type.STRING,
-          description:
-            'Nome ou parte do nome do produto (opcional se id for informado)',
+          description: 'Nome do produto',
         },
       },
     },
   },
   {
     name: 'get_order_status',
-    description: 'Retorna o status e detalhes de um pedido pelo id.',
+    description: 'Retorna status e detalhes de um pedido.',
     parameters: {
       type: Type.OBJECT,
       properties: {
@@ -72,28 +47,23 @@ export const toolDefinitions: FunctionDeclaration[] = [
   },
   {
     name: 'create_order',
-    description:
-      'Cria um novo pedido. Cada item pode informar productId (número) ou name (texto) junto com quantity.',
+    description: 'Cria um novo pedido usando nome do produto e quantidade.',
     parameters: {
       type: Type.OBJECT,
       properties: {
         items: {
           type: Type.ARRAY,
-          description: 'Lista de itens do pedido',
           items: {
             type: Type.OBJECT,
             properties: {
               productId: {
                 type: Type.NUMBER,
-                description: 'ID do produto (use se souber)',
               },
               name: {
                 type: Type.STRING,
-                description: 'Nome do produto (alternativa ao productId)',
               },
               quantity: {
                 type: Type.NUMBER,
-                description: 'Quantidade',
               },
             },
             required: ['quantity'],
@@ -105,7 +75,17 @@ export const toolDefinitions: FunctionDeclaration[] = [
   },
 ];
 
-type RawItem = { productId?: number; name?: string; quantity: number };
+const productApi = new ProductApiService();
+
+const orderApi = new OrderApiService();
+
+const productResolver = new ProductResolverService(productApi);
+
+type RawItem = {
+  productId?: number;
+  name?: string;
+  quantity: number;
+};
 
 export async function executeTool(
   name: string,
@@ -113,49 +93,58 @@ export async function executeTool(
 ): Promise<string> {
   try {
     if (name === 'list_products') {
-      const { data } = await axios.get<Product[]>(`${API_BASE_URL}/products`);
+      const data = await productApi.findAll();
+
       return JSON.stringify(data);
     }
 
     if (name === 'get_product') {
       const id =
         args.id != null
-          ? await resolveProductId(args.id as number)
-          : await resolveProductId(args.name as string);
-      const { data } = await axios.get<Product>(
-        `${API_BASE_URL}/products/${id}`,
-      );
+          ? await productResolver.resolve(args.id as number)
+          : await productResolver.resolve(args.name as string);
+
+      const data = await productApi.findById(id);
+
       return JSON.stringify(data);
     }
 
     if (name === 'get_order_status') {
-      const { data } = await axios.get<Order>(
-        `${API_BASE_URL}/orders/${args.id as number}`,
-      );
+      const data = await orderApi.findById(args.id as number);
+
       return JSON.stringify(data);
     }
 
     if (name === 'create_order') {
       const rawItems = args.items as RawItem[];
+
       const items = await Promise.all(
         rawItems.map(async (item) => {
           const productId =
             item.productId != null
-              ? await resolveProductId(item.productId)
-              : await resolveProductId(item.name as string);
-          return { productId, quantity: item.quantity };
+              ? await productResolver.resolve(item.productId)
+              : await productResolver.resolve(item.name as string);
+
+          return {
+            productId,
+            quantity: item.quantity,
+          };
         }),
       );
-      const dto: CreateOrderDTO = { items };
-      const { data } = await axios.post<Order>(`${API_BASE_URL}/orders`, dto);
+
+      const data = await orderApi.create({
+        items,
+      });
+
       return JSON.stringify(data);
     }
 
-    return JSON.stringify({ error: `Tool desconhecida: ${name}` });
-  } catch (err: unknown) {
-    if (axios.isAxiosError(err) && err.response?.data?.error) {
-      return JSON.stringify({ error: err.response.data.error });
-    }
-    return JSON.stringify({ error: (err as Error).message });
+    return JSON.stringify({
+      error: 'tool inválida',
+    });
+  } catch (err) {
+    return JSON.stringify({
+      error: (err as Error).message,
+    });
   }
 }
